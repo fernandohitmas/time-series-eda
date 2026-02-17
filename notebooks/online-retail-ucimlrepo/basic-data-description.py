@@ -86,7 +86,7 @@ def _(df):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    Data description per city
+    General data description per city
     """)
     return
 
@@ -107,8 +107,8 @@ def _(df, pl):
         pl.max('temp_min').alias('max_temp_min'),
         pl.min('wind').alias('min_wind_vel'),
         pl.max('wind').alias('max_wind_vel'),
-        pl.col('weather').value_counts().sort().first().alias('least_common_weather'),
-        pl.max('weather').alias('most_common_weather'),
+        pl.col('weather').value_counts(sort=True).last().alias('least_common_weather'),
+        pl.col('weather').value_counts(sort=True).first().alias('most_common_weather'),
 
     ).unpivot(
         index='city', variable_name='Metrics'
@@ -116,19 +116,35 @@ def _(df, pl):
     return
 
 
-@app.cell
-def _(df, pl):
-    df.group_by(
-        pl.col('location'),
-        pl.col('weather')
-    ).agg(
-        pl.len()
-    ).sort(by='len')
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Seattle data exploration
+    """)
     return
 
 
 @app.cell
-def _():
+def _(df, pl):
+    df_st = df.filter(pl.col('location') == 'Seattle')
+    return (df_st,)
+
+
+@app.cell
+def _(df_st):
+    df_st.describe()
+    return
+
+
+@app.cell
+def _(df, pl):
+    df_ny = df.filter(pl.col('location') == 'New York')
+    return (df_ny,)
+
+
+@app.cell
+def _(df_ny):
+    df_ny.describe()
     return
 
 
