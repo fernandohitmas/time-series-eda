@@ -52,7 +52,7 @@ def _(df, pl):
         ).str.to_integer().alias('weekyear'),
         pl.col('date').dt.weekday().alias('weekday'),
         pl.col('date').dt.week().alias('isoweek'),
-    
+
     )
     return (df2,)
 
@@ -198,7 +198,6 @@ def _(alt, df2):
     )
 
     chart6
-
     return
 
 
@@ -215,37 +214,35 @@ def _(alt, df2):
     chart7 = alt.Chart(df2).mark_line(
         point=alt.OverlayMarkDef(filled=False, fill="white")
     ).encode(
-        x=alt.X('year:Q', axis=alt.Axis(values=[2012, 2013, 2014, 2015])),
-        y=alt.Y('sum(precipitation):Q'),
-        column=alt.Column('month:N'),
-        row=alt.Row('location:N'),
+        x=alt.X('year(date)', axis=alt.Axis(values=[2012, 2013, 2014, 2015])),
+        y=alt.Y('average(precipitation):Q'),
+        # column=alt.Column('month'),
+        # row=alt.Row('location'),
         color=alt.Color('location')
     ).properties(
-        height=150,
+        height=200,
+        width=40
+    )
+    chart8 = alt.Chart(df2).mark_rule().encode(
+        y=alt.Y('average(precipitation):Q'),
+        color=alt.Color('location')
+    ).properties(
+        height=200,
         width=40
     )
 
-    chart8 = alt.Chart(df2).mark_rule().encode(
-        y=alt.Y('sum(precipitation):Q'),
-        #x=alt.X('year:N'),
-        column=alt.Column('month:N'),
-        row=alt.Row('location:N')
-    )
 
-    chart7 #+ chart8
+    layered_chart = chart7 + chart8
+    layered_chart.facet(
+        column=alt.Column('month'),
+        row=alt.Row('location')
+    )
     return
 
 
 @app.cell
-def _(alt, df2):
-    chart9 = alt.Chart(df2).mark_rule().encode(
-        y=alt.Y('average(precipitation):Q'),
-        #x=alt.X('year:N'),
-        column=alt.Column('month:N'),
-        row=alt.Row('location:N')
-    )
-
-    chart9
+def _(df2, pl):
+    df2.select(pl.col('month')).unique()
     return
 
 
