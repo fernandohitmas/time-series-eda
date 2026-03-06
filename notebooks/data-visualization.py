@@ -214,21 +214,24 @@ def _(alt, df2):
     chart7 = alt.Chart(df2).mark_line(
         point=alt.OverlayMarkDef(filled=False, fill="white")
     ).encode(
-        x=alt.X('year(date)', axis=alt.Axis(values=[2012, 2013, 2014, 2015])),
-        y=alt.Y('average(precipitation):Q'),
+        x=alt.X('year(date):Q', axis=alt.Axis(values=[2012, 2013, 2014, 2015])),
+        y=alt.Y('sum(precipitation):Q'),
         # column=alt.Column('month'),
         # row=alt.Row('location'),
         color=alt.Color('location')
     ).properties(
         height=200,
-        width=40
+        width=45
     )
     chart8 = alt.Chart(df2).mark_rule().encode(
-        y=alt.Y('average(precipitation):Q'),
+        y=alt.Y('average(sum_precip):Q'),
         color=alt.Color('location')
+    ).transform_aggregate(
+        sum_precip='sum(precipitation)',
+        groupby=['location','year','month']
     ).properties(
         height=200,
-        width=40
+        width=45
     )
 
 
@@ -241,13 +244,66 @@ def _(alt, df2):
 
 
 @app.cell
-def _(df2, pl):
-    df2.select(pl.col('month')).unique()
+def _(alt, df2):
+    chart9 = alt.Chart(df2).transform_window(
+        window=[alt.WindowFieldDef(op='lag', field='precipitation', param=1, **{'as': 'lag1_precip'})],
+        # frame=[None, None]
+    ).mark_point().encode(
+        x=alt.X('precipitation:Q'),
+        y=alt.Y('lag1_precip:Q'),
+        color='location'
+    ).properties(
+        width=300,
+        height=300
+    )
+
+
+    chart9
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Moving Average (7 days)
+    """)
     return
 
 
 @app.cell
-def _():
+def _(alt, df2):
+    chart9 = alt.Chart(df2).mark_line().transform_window(
+        precipitation_avg7d = 'mean(precipitation)',
+        frame=[-7,0]
+    ).encode(
+        x=alt.X('date'),
+        y=alt.Y('precipitation_avg7d:Q')
+    )
+
+    chart9
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Diferentiation
+    """)
+    return
+
+
+@app.cell
+def _(alt, df2):
+    chart10 = alt.Chart(df2).transform_window(
+        precip_lag1 = 'lag(precipitation)'
+    ).transform_calculate(
+        precip_diff1 = alt.datum.precipitation - alt.datum.precip_lag1
+    ).mark_line().encode(
+        x=alt.X('date'),
+        y=alt.Y('precip_diff1:Q')
+    )
+
+    chart10
     return
 
 
