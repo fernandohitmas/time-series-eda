@@ -11,8 +11,13 @@ def _():
     import altair as alt
     from altair.datasets import data
     import polars as pl
+    import matplotlib.pyplot as plt
 
-    return alt, data, mo, pl
+
+    # Statistics
+    from statsmodels.tsa.seasonal import seasonal_decompose
+
+    return alt, data, mo, pl, seasonal_decompose
 
 
 @app.cell
@@ -26,6 +31,12 @@ def _(mo):
     mo.md(r"""
     # Importing Weather Data
     """)
+    return
+
+
+@app.cell
+def _(data):
+    data.list_datasets()
     return
 
 
@@ -52,7 +63,6 @@ def _(df, pl):
         ).str.to_integer().alias('weekyear'),
         pl.col('date').dt.weekday().alias('weekday'),
         pl.col('date').dt.week().alias('isoweek'),
-
     )
     return (df2,)
 
@@ -74,7 +84,7 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## Precipitation
+    ## Wind velocity
     """)
     return
 
@@ -91,7 +101,7 @@ def _(mo):
 def _(alt, df2):
     chart1 = alt.Chart(df2).mark_line().encode(
         x=alt.X('date', title='Date'),
-        y=alt.Y('precipitation:Q', title='Precipitation (mm)'),
+        y=alt.Y('wind:Q', title='Wind Velocity (mm)'),
         color='location:N',
         row=alt.Row('location', header=None)
     ).properties(
@@ -102,7 +112,7 @@ def _(alt, df2):
 
     chart2 = alt.Chart(df2).mark_tick().encode(
         # x=alt.X('precipitation', title='Count'),
-        y=alt.Y('precipitation',
+        y=alt.Y('wind',
                 scale=alt.Scale(domainMin=0),
                 axis=alt.Axis(orient='right', labels=False, ticks=False, title=None)),
         color=alt.Color('location:N', legend=alt.Legend(orient="top", title='Location')),
@@ -138,7 +148,7 @@ def _(alt, df2):
         point=alt.OverlayMarkDef(filled=False, fill="white")
     ).encode(
         x=alt.X('month(date):T', title='Date'),
-        y=alt.Y('sum(precipitation):Q', title='Precipitation (mm)'),
+        y=alt.Y('average(wind):Q', title='Wind'),
         color=alt.Color('year:N'),
         row=alt.Row('location', header=None)
     ).properties(
@@ -164,7 +174,7 @@ def _(alt, df2):
         point=alt.OverlayMarkDef(filled=False, fill="white")
     ).encode(
         x=alt.X('isoweek', title='Week'),
-        y=alt.Y('sum(precipitation):Q', title='Precipitation (mm)'),
+        y=alt.Y('average(wind):Q', title='Wind'),
         color=alt.Color('year:N'),
         row=alt.Row('location', header=None)
     ).properties(
@@ -188,7 +198,7 @@ def _(mo):
 def _(alt, df2):
     chart6 = alt.Chart(df2).mark_line().encode(
         x=alt.X('weekday:Q', title='Week', axis=alt.Axis(values=[1,2,3,4,5,6,7])),
-        y=alt.Y('sum(precipitation):Q', title='Precipitation (mm)'),
+        y=alt.Y('average(wind):Q', title='Wind'),
         color=alt.Color('isoweek:Q'),
         row=alt.Row('location', header=None),
         column=alt.Column('year')
@@ -215,7 +225,7 @@ def _(alt, df2):
         point=alt.OverlayMarkDef(filled=False, fill="white")
     ).encode(
         x=alt.X('year(date):Q', axis=alt.Axis(values=[2012, 2013, 2014, 2015])),
-        y=alt.Y('sum(precipitation):Q'),
+        y=alt.Y('average(wind):Q'),
         # column=alt.Column('month'),
         # row=alt.Row('location'),
         color=alt.Color('location')
@@ -224,10 +234,10 @@ def _(alt, df2):
         width=45
     )
     chart8 = alt.Chart(df2).mark_rule().encode(
-        y=alt.Y('average(sum_precip):Q'),
+        y=alt.Y('average(avg_wind):Q'),
         color=alt.Color('location')
     ).transform_aggregate(
-        sum_precip='sum(precipitation)',
+        avg_wind='average(wind)',
         groupby=['location','year','month']
     ).properties(
         height=200,
@@ -245,20 +255,60 @@ def _(alt, df2):
 
 @app.cell
 def _(alt, df2):
+    width_lag_chart = 150
+    height_lag_chart = 150
+
     chart9 = alt.Chart(df2).transform_window(
-        window=[alt.WindowFieldDef(op='lag', field='precipitation', param=1, **{'as': 'lag1_precip'})],
+        window=[alt.WindowFieldDef(op='lag', field='wind', param=1, **{'as': 'lag1_wind'})],
         # frame=[None, None]
     ).mark_point().encode(
-        x=alt.X('precipitation:Q'),
-        y=alt.Y('lag1_precip:Q'),
+        x=alt.X('wind:Q'),
+        y=alt.Y('lag1_wind:Q'),
+        row='location',
         color='location'
     ).properties(
-        width=300,
-        height=300
+        width=width_lag_chart,
+        height=height_lag_chart
     )
 
+    chart10 = alt.Chart(df2).transform_window(
+        window=[alt.WindowFieldDef(op='lag', field='wind', param=2, **{'as': 'lag2_wind'})],
+        # frame=[None, None]
+    ).mark_point().encode(
+        x=alt.X('wind:Q'),
+        y=alt.Y('lag2_wind:Q'),
+        row='location',
+        color='location'
+    ).properties(
+        width=width_lag_chart,
+        height=height_lag_chart
+    )
 
-    chart9
+    chart11 = alt.Chart(df2).transform_window(
+        window=[alt.WindowFieldDef(op='lag', field='wind', param=7, **{'as': 'lag7_wind'})],
+    ).mark_point().encode(
+        x=alt.X('wind:Q'),
+        y=alt.Y('lag7_wind:Q'),
+        row=alt.Column('location'),
+        color='location'
+    ).properties(
+        width=width_lag_chart,
+        height=height_lag_chart
+    )
+
+    chart12 = alt.Chart(df2).transform_window(
+        window=[alt.WindowFieldDef(op='lag', field='wind', param=14, **{'as': 'lag14_wind'})],
+    ).mark_point().encode(
+        x=alt.X('wind:Q'),
+        y=alt.Y('lag14_wind:Q'),
+        row=alt.Column('location'),
+        color='location'
+    ).properties(
+        width=width_lag_chart,
+        height=height_lag_chart
+    )
+
+    alt.hconcat(chart9, chart10, chart11, chart12)
     return
 
 
@@ -271,16 +321,42 @@ def _(mo):
 
 
 @app.cell
-def _(alt, df2):
-    chart9 = alt.Chart(df2).mark_line().transform_window(
-        precipitation_avg7d = 'mean(precipitation)',
-        frame=[-7,0]
-    ).encode(
-        x=alt.X('date'),
-        y=alt.Y('precipitation_avg7d:Q')
+def _(df2, pl):
+    df3 = df2.with_columns(
+        mov_avg = pl.col('wind').rolling_mean(window_size=7, center=True)
+    )
+    return (df3,)
+
+
+@app.cell
+def _(alt, df3):
+
+
+    chart14 = alt.Chart(df3).mark_line(color='lightgreen').encode(
+        x=alt.X('date:T'),
+        y=alt.Y('mov_avg:Q')
+    ).properties(
+        width=800,
+        height=200
     )
 
-    chart9
+    chart13 = alt.Chart(df3).mark_line().encode(
+        x=alt.X('date:T', title='Date'),
+        y=alt.Y('wind:Q', title='Wind Velocity'),
+        color='location:N',
+        #row=alt.Row('location', header=None)
+    ).properties(
+        width=800,
+        height=200
+    )
+
+
+    # chart13 + chart14
+    layered_chart2 = chart13 + chart14
+
+    layered_chart2.facet(
+        row=alt.Row('location'),
+    )
     return
 
 
@@ -294,16 +370,41 @@ def _(mo):
 
 @app.cell
 def _(alt, df2):
-    chart10 = alt.Chart(df2).transform_window(
-        precip_lag1 = 'lag(precipitation)'
+    chart15 = alt.Chart(df2).transform_window(
+        precip_lag1 = 'lag(wind)'
     ).transform_calculate(
-        precip_diff1 = alt.datum.precipitation - alt.datum.precip_lag1
+        wind_diff1 = alt.datum.precipitation - alt.datum.precip_lag1
     ).mark_line().encode(
         x=alt.X('date'),
-        y=alt.Y('precip_diff1:Q')
+        y=alt.Y('wind_diff1:Q')
     )
 
-    chart10
+    chart15
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Decomposition
+    """)
+    return
+
+
+@app.cell
+def _(df2, pl, seasonal_decompose):
+    decompose = seasonal_decompose(df2.select(pl.col('wind').sort_by('date')), period=365)
+    return (decompose,)
+
+
+@app.cell
+def _(decompose):
+    decompose.plot()
+    return
+
+
+@app.cell
+def _():
     return
 
 
