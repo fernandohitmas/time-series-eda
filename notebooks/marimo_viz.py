@@ -45,38 +45,49 @@ def _(alt):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    # Choosing Dataset
+    # Upload .csv data file
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    dropdown = mo.ui.file(
+        filetypes=['.csv'],
+        multiple=False,
+        kind='area'
+    )
+    dropdown
+    return (dropdown,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Reading uploaded file
     """)
     return
 
 
 @app.cell
-def _(mo):
-    dropdown = mo.ui.dropdown(options=["Apples", "Oranges", "Pears"], label="choose fruit")
-    dropdown_dict = mo.ui.dropdown(options={"Apples":1, "Oranges":2, "Pears":3},
-                            value="Apples", # initial value
-                            label="choose fruit with dict options")
-    return dropdown, dropdown_dict
+def _(dropdown, pl):
+    if dropdown.value:
+        df_file = pl.read_csv(dropdown.contents())
+        df_file
+    return
 
 
 @app.cell(hide_code=True)
-def _(dropdown, dropdown_dict, mo):
-    mo.vstack([mo.hstack([dropdown, mo.md(f"Has value: {dropdown.value}")]),
-    mo.hstack([dropdown_dict, mo.md(f"Has value: {dropdown_dict.value} and selected_key {dropdown_dict.selected_key}")]),
-                ])
-    return
-
-
-@app.cell
 def _(data, mo):
     datasets_dropdown = mo.ui.dropdown(options=data.list_datasets(), label="Choose the dataset")
     datasets_dropdown
-    return
+    return (datasets_dropdown,)
 
 
 @app.cell
-def _(data, pl):
-    pl.from_dataframe(getattr(data, 'weather')())
+def _(data, datasets_dropdown, pl):
+    dataset_name = datasets_dropdown.selected_key
+    pl.from_dataframe(getattr(data, dataset_name)())
     return
 
 
@@ -84,6 +95,12 @@ def _(data, pl):
 def _(data, pl):
     df = pl.from_dataframe(data.weather()) 
     return (df,)
+
+
+@app.cell
+def _(df):
+    df.write_csv(file='teste.csv')
+    return
 
 
 @app.cell
