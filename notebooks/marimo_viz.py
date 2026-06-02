@@ -51,14 +51,14 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    dropdown = mo.ui.file(
-        filetypes=['.csv'],
-        multiple=False,
-        kind='area'
-    )
-    dropdown
-    return (dropdown,)
+def _():
+    # uploaded_file = mo.ui.file(
+    #     filetypes=['.csv'],
+    #     multiple=False,
+    #     kind='area'
+    # )
+    # uploaded_file
+    return
 
 
 @app.cell(hide_code=True)
@@ -69,17 +69,29 @@ def _(mo):
     return
 
 
-@app.cell
-def _(dropdown, pl):
-    if dropdown.value:
-        df_file = pl.read_csv(dropdown.contents())
-        df_file
+@app.cell(hide_code=True)
+def _():
+    # if uploaded_file.value:
+    #     df_file = pl.read_csv(uploaded_file.contents())
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    # Selecting a dataset from Altair's database
+    """)
     return
 
 
 @app.cell(hide_code=True)
 def _(data, mo):
-    datasets_dropdown = mo.ui.dropdown(options=data.list_datasets(), label="Choose the dataset")
+    datasets_dropdown = mo.ui.dropdown(
+        options=data.list_datasets(),
+        label="###Choose one dataset",
+        full_width=True,
+        value="weather"
+    )
     datasets_dropdown
     return (datasets_dropdown,)
 
@@ -87,25 +99,30 @@ def _(data, mo):
 @app.cell
 def _(data, datasets_dropdown, pl):
     dataset_name = datasets_dropdown.selected_key
-    pl.from_dataframe(getattr(data, dataset_name)())
-    return
-
-
-@app.cell
-def _(data, pl):
-    df = pl.from_dataframe(data.weather()) 
+    df = pl.from_dataframe(getattr(data, dataset_name)())
     return (df,)
 
 
-@app.cell
-def _(df):
-    df.write_csv(file='teste.csv')
+@app.cell(hide_code=True)
+def _(df, mo):
+    text_cols = "<br>".join(df.columns)
+    mo.md(f'''
+    # Dataset columns:
+    {text_cols}
+
+    ''')
     return
 
 
 @app.cell
-def _(df):
-    df.columns
+def _(df, mo):
+    date_col_drop = mo.ui.dropdown(
+        label="Select date columnn",
+        options=df.columns, 
+        value="date",
+        full_width=True
+    )
+    date_col_drop
     return
 
 
@@ -213,12 +230,7 @@ def _():
     return
 
 
-@app.cell(column=1)
-def _():
-    return
-
-
-@app.cell(hide_code=True)
+@app.cell(column=1, hide_code=True)
 def _(alt, df2, mo):
     chart1 = (
         alt.Chart(df2)
