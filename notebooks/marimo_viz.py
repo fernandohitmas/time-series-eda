@@ -1,10 +1,10 @@
 import marimo
 
 __generated_with = "0.19.11"
-app = marimo.App(width="columns")
+app = marimo.App(width="medium")
 
 
-@app.cell(column=0, hide_code=True)
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
     # Marimo interactive visualization
@@ -93,14 +93,14 @@ def _(data, mo):
         value="weather"
     )
     datasets_dropdown
-    return (datasets_dropdown,)
+    return
 
 
 @app.cell
-def _(data, datasets_dropdown, pl):
-    dataset_name = datasets_dropdown.selected_key
-    df = pl.from_dataframe(getattr(data, dataset_name)())
-    return (df,)
+def _():
+    # dataset_name = datasets_dropdown.selected_key
+    # df = pl.from_dataframe(getattr(data, dataset_name)())
+    return
 
 
 @app.cell(hide_code=True)
@@ -117,13 +117,12 @@ def _(df, mo):
 @app.cell
 def _(df, mo):
     date_col_drop = mo.ui.dropdown(
-        label="Select date columnn",
+        label="##Select the date column",
         options=df.columns, 
-        value="date",
         full_width=True
     )
     date_col_drop
-    return
+    return (date_col_drop,)
 
 
 @app.cell(hide_code=True)
@@ -135,20 +134,24 @@ def _(mo):
 
 
 @app.cell
-def _(df, pl):
+def _(date_col_drop, df, pl):
     df2 = df.with_columns(
-        pl.col("date").dt.year().alias("year"),
-        pl.col("date").dt.month().alias("month"),
+        pl.col(date_col_drop.value).dt.year().alias("year"),
+        pl.col(date_col_drop.value).dt.month().alias("month"),
         pl.concat_str(
-            pl.col("date").dt.year(),
-            pl.col("date").dt.strftime("%V"),
-        )
-        .str.to_integer()
-        .alias("weekyear"),
-        pl.col("date").dt.weekday().alias("weekday"),
-        pl.col("date").dt.week().alias("isoweek"),
+            pl.col(date_col_drop.value).dt.year(),
+            pl.col(date_col_drop.value).dt.strftime("%V"),
+        ).str.to_integer().alias("weekyear"),
+        pl.col(date_col_drop.value).dt.weekday().alias("weekday"),
+        pl.col(date_col_drop.value).dt.week().alias("isoweek"),
     )
     return (df2,)
+
+
+@app.cell
+def _(df2):
+    df2
+    return
 
 
 @app.cell(hide_code=True)
@@ -159,78 +162,7 @@ def _(mo):
     return
 
 
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## Wind velocity
-    """)
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ### Total interval visualization
-    """)
-    return
-
-
 @app.cell
-def _():
-    return
-
-
-@app.cell
-def _():
-    return
-
-
-@app.cell
-def _():
-    return
-
-
-@app.cell
-def _():
-    return
-
-
-@app.cell
-def _():
-    return
-
-
-@app.cell
-def _():
-    return
-
-
-@app.cell
-def _():
-    return
-
-
-@app.cell
-def _():
-    return
-
-
-@app.cell
-def _():
-    return
-
-
-@app.cell
-def _():
-    return
-
-
-@app.cell
-def _():
-    return
-
-
-@app.cell(column=1, hide_code=True)
 def _(alt, df2, mo):
     chart1 = (
         alt.Chart(df2)
@@ -271,6 +203,71 @@ def _(alt, df2, mo):
     grouped_chart = chart1 | chart2
 
     mo.ui.altair_chart(grouped_chart)
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
     return
 
 
