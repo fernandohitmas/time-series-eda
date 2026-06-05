@@ -93,14 +93,14 @@ def _(data, mo):
         value="weather"
     )
     datasets_dropdown
-    return
+    return (datasets_dropdown,)
 
 
 @app.cell
-def _():
-    # dataset_name = datasets_dropdown.selected_key
-    # df = pl.from_dataframe(getattr(data, dataset_name)())
-    return
+def _(data, datasets_dropdown, pl):
+    dataset_name = datasets_dropdown.selected_key
+    df = pl.from_dataframe(getattr(data, dataset_name)())
+    return (df,)
 
 
 @app.cell(hide_code=True)
@@ -128,12 +128,18 @@ def _(df, mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## New time columns
+    ## New columns derived from Date
+
+    - year: extract year from selected date column
+    - month: extract month from selected date column
+    - weekyear: concatenates the ISO week and year from selected date column
+    - weekday: extract which day of the week from selected date
+    - isoweek: extract ISO wekk from selected date columns
     """)
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(date_col_drop, df, pl):
     df2 = df.with_columns(
         pl.col(date_col_drop.value).dt.year().alias("year"),
@@ -149,8 +155,8 @@ def _(date_col_drop, df, pl):
 
 
 @app.cell
-def _(df2):
-    df2
+def _(df2, pl):
+    df2.select(pl.nth(range(-5,0,1))).head()
     return
 
 
@@ -163,56 +169,114 @@ def _(mo):
 
 
 @app.cell
-def _(alt, df2, mo):
-    chart1 = (
+def _():
+    return
+
+
+@app.cell(hide_code=True)
+def _():
+    # chart1 = (
+    #     alt.Chart(df2)
+    #     .mark_line()
+    #     .encode(
+    #         x=alt.X("date", title="Date"),
+    #         y=alt.Y("wind:Q", title="Wind Velocity (mm)"),
+    #         color="location:N",
+    #         row=alt.Row("location", header=None),
+    #     )
+    #     .properties(height=200, width=800)
+    # )
+
+
+    # chart2 = (
+    #     alt.Chart(df2)
+    #     .mark_tick()
+    #     .encode(
+    #         # x=alt.X('precipitation', title='Count'),
+    #         y=alt.Y(
+    #             "wind",
+    #             scale=alt.Scale(domainMin=0),
+    #             axis=alt.Axis(
+    #                 orient="right", labels=False, ticks=False, title=None
+    #             ),
+    #         ),
+    #         color=alt.Color(
+    #             "location:N", legend=alt.Legend(orient="top", title="Location")
+    #         ),
+    #         row=alt.Row("location", header=None),
+    #     )
+    #     .properties(
+    #         height=200,
+    #         width=20,
+    #     )
+    # )
+
+    # grouped_chart = chart1 | chart2
+
+    # mo.ui.altair_chart(grouped_chart)
+    return
+
+
+@app.cell
+def _():
+
+    # import datetime as dt
+    # source = data.sp500.url
+
+    # date_range = (dt.date(2007, 6, 30), dt.date(2009, 6, 30))
+
+    # brush = alt.selection_interval(encodings=['x'],
+    #                                value={'x': date_range})
+
+    # base = alt.Chart(source, width=600, height=200).mark_area().encode(
+    #     x = 'date:T',
+    #     y = 'price:Q'
+    # )
+
+    # upper = base.encode(
+    #     alt.X('date:T').scale(domain=brush)
+    # )
+
+    # lower = base.properties(
+    #     height=60
+    # ).add_params(brush)
+
+    # upper & lower
+    return
+
+
+@app.cell
+def _(alt, df2):
+    brush = alt.selection_interval(encodings=['x'])
+
+    base = (
         alt.Chart(df2)
         .mark_line()
         .encode(
-            x=alt.X("date", title="Date"),
-            y=alt.Y("wind:Q", title="Wind Velocity (mm)"),
-            color="location:N",
-            row=alt.Row("location", header=None),
+            x=alt.X("date:T", title="Date"),
+            y=alt.Y("mean(wind):Q", title=" Avg Wind Velocity (mm)"),
         )
         .properties(height=200, width=800)
     )
 
-
-    chart2 = (
-        alt.Chart(df2)
-        .mark_tick()
+    chart = (
+        base
         .encode(
-            # x=alt.X('precipitation', title='Count'),
-            y=alt.Y(
-                "wind",
-                scale=alt.Scale(domainMin=0),
-                axis=alt.Axis(
-                    orient="right", labels=False, ticks=False, title=None
-                ),
-            ),
-            color=alt.Color(
-                "location:N", legend=alt.Legend(orient="top", title="Location")
-            ),
-            row=alt.Row("location", header=None),
+            x=alt.X("date:T", title="Date").scale(domain=brush),
+        
+            color="location:N",
+            # row=alt.Row("location", header=None),
         )
-        .properties(
-            height=200,
-            width=20,
-        )
+        .properties(height=200, width=900)
     )
 
-    grouped_chart = chart1 | chart2
+    selector = (
+        base
+        .properties(height=50, width=900)
+        .add_params(brush)
+    )
 
-    mo.ui.altair_chart(grouped_chart)
-    return
-
-
-@app.cell
-def _():
-    return
-
-
-@app.cell
-def _():
+    chart & selector
     return
 
 
