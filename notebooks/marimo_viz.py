@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.19.11"
+__generated_with = "0.23.9"
 app = marimo.App(width="medium")
 
 
@@ -17,6 +17,8 @@ def _():
     import marimo as mo
     import numpy as np
     import altair as alt
+
+    import pandas as pd
 
     import polars as pl
     import matplotlib.pyplot as plt
@@ -163,130 +165,77 @@ def _(df2, pl):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    # Visual Exploration - Split by city
+    # Visual Exploration
     """)
     return
 
 
-@app.cell
-def _():
+@app.cell(hide_code=True)
+def _(date_col_drop, df, mo):
+    not_date_cols = df.columns
+    not_date_cols.remove(date_col_drop.selected_key)
+
+    metri_col_drop = mo.ui.dropdown(
+        label="##Select a metric",
+        options=not_date_cols, 
+        full_width=True
+    )
+    metri_col_drop
+    return (metri_col_drop,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Complete time series interval
+    """)
     return
 
 
 @app.cell(hide_code=True)
-def _():
-    # chart1 = (
-    #     alt.Chart(df2)
-    #     .mark_line()
-    #     .encode(
-    #         x=alt.X("date", title="Date"),
-    #         y=alt.Y("wind:Q", title="Wind Velocity (mm)"),
-    #         color="location:N",
-    #         row=alt.Row("location", header=None),
-    #     )
-    #     .properties(height=200, width=800)
-    # )
-
-
-    # chart2 = (
-    #     alt.Chart(df2)
-    #     .mark_tick()
-    #     .encode(
-    #         # x=alt.X('precipitation', title='Count'),
-    #         y=alt.Y(
-    #             "wind",
-    #             scale=alt.Scale(domainMin=0),
-    #             axis=alt.Axis(
-    #                 orient="right", labels=False, ticks=False, title=None
-    #             ),
-    #         ),
-    #         color=alt.Color(
-    #             "location:N", legend=alt.Legend(orient="top", title="Location")
-    #         ),
-    #         row=alt.Row("location", header=None),
-    #     )
-    #     .properties(
-    #         height=200,
-    #         width=20,
-    #     )
-    # )
-
-    # grouped_chart = chart1 | chart2
-
-    # mo.ui.altair_chart(grouped_chart)
-    return
-
-
-@app.cell
-def _():
-
-    # import datetime as dt
-    # source = data.sp500.url
-
-    # date_range = (dt.date(2007, 6, 30), dt.date(2009, 6, 30))
-
-    # brush = alt.selection_interval(encodings=['x'],
-    #                                value={'x': date_range})
-
-    # base = alt.Chart(source, width=600, height=200).mark_area().encode(
-    #     x = 'date:T',
-    #     y = 'price:Q'
-    # )
-
-    # upper = base.encode(
-    #     alt.X('date:T').scale(domain=brush)
-    # )
-
-    # lower = base.properties(
-    #     height=60
-    # ).add_params(brush)
-
-    # upper & lower
-    return
-
-
-@app.cell
-def _(alt, df2):
+def _(alt, date_col_drop, df2, metri_col_drop):
     brush = alt.selection_interval(encodings=['x'])
 
-    base = (
+    year_rule = (
+        alt.Chart(df2)
+        .mark_rule(color="gray",strokeDash=[8,4], strokeWidth=1)
+        .encode(
+            x=alt.X(f"year({date_col_drop.selected_key})", axis=None).scale(domain=brush)
+        )
+    )
+
+    line_chart = (
         alt.Chart(df2)
         .mark_line()
         .encode(
-            x=alt.X("date:T", title="Date"),
-            y=alt.Y("mean(wind):Q", title=" Avg Wind Velocity (mm)"),
+            x=alt.X(f"{date_col_drop.selected_key}:T", title="Date").scale(domain=brush),
+            y=alt.Y(f"mean({metri_col_drop.selected_key}):Q", title="Avg. Wind Velocity"),
+            color=alt.Color("location:N").legend(orient='top'),
         )
-        .properties(height=200, width=800)
-    )
-
-    chart = (
-        base
-        .encode(
-            x=alt.X("date:T", title="Date").scale(domain=brush),
-        
-            color="location:N",
-            # row=alt.Row("location", header=None),
-        )
-        .properties(height=200, width=900)
+        .properties(height=300, width=1000)
     )
 
     selector = (
-        base
-        .properties(height=50, width=900)
+        alt.Chart(df2)
+        .mark_line(color='black')
+        .encode(
+            x=alt.X(f"{date_col_drop.selected_key}", title=None),
+            y=alt.Y(f"mean({metri_col_drop.selected_key}):Q", title=None)
+        )
+        .properties(height=50, width=1000)
         .add_params(brush)
     )
 
-    chart & selector
+    composed_chart =  (line_chart + year_rule).resolve_axis(x="independent") 
+    composed_chart & selector
     return
 
 
-@app.cell
-def _():
-    return
-
-
-@app.cell
-def _():
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Seasonality charts
+    """)
     return
 
 
