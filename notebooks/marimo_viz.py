@@ -17,6 +17,7 @@ def _():
     import marimo as mo
     import numpy as np
     import altair as alt
+    from datetime import datetime, timedelta
 
     import pandas as pd
 
@@ -42,6 +43,23 @@ def _(alt):
     alt.data_transformers.enable("vegafusion")
     alt.renderers.set_embed_options(actions=False)
     return
+
+
+@app.cell
+def _(mo):
+    # 1. Defina a função de escala
+    def amplificar(componente, escala=1.3):
+        return mo.style(
+            componente, 
+            style={
+                "transform": f"scale({escala})",
+                "transform-origin": "left center",
+                "margin-bottom": f"{20 * escala}px", # Evita que elementos se sobreponham verticalmente
+                "display": "inline-block"
+            }
+        )
+
+    return (amplificar,)
 
 
 @app.cell(hide_code=True)
@@ -87,14 +105,14 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(data, mo):
+def _(amplificar, data, mo):
     datasets_dropdown = mo.ui.dropdown(
         options=data.list_datasets(),
         label="###Choose one dataset",
         full_width=True,
         value="weather"
     )
-    datasets_dropdown
+    amplificar(datasets_dropdown)
     return (datasets_dropdown,)
 
 
@@ -116,14 +134,14 @@ def _(df, mo):
     return
 
 
-@app.cell
-def _(df, mo):
+@app.cell(hide_code=True)
+def _(amplificar, df, mo):
     date_col_drop = mo.ui.dropdown(
         label="##Select the date column",
         options=df.columns, 
         full_width=True
     )
-    date_col_drop
+    amplificar(date_col_drop)
     return (date_col_drop,)
 
 
@@ -162,6 +180,12 @@ def _(df2, pl):
     return
 
 
+@app.cell
+def _(df2, mo):
+    mo.ui.dataframe(df2)
+    return
+
+
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
@@ -171,30 +195,42 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(date_col_drop, df, mo):
+def _(amplificar, date_col_drop, df, mo):
     not_date_cols = df.columns
     not_date_cols.remove(date_col_drop.selected_key)
 
     metri_col_drop = mo.ui.dropdown(
-        label="##Select a metric",
+        label='''###Select a metric''',
         options=not_date_cols, 
-        full_width=True
     )
-    metri_col_drop
+
+    amplificar(metri_col_drop)
     return (metri_col_drop,)
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## Complete time series interval
+    ## Exact date selector
     """)
     return
 
 
 @app.cell(hide_code=True)
-def _(alt, date_col_drop, df2, metri_col_drop):
-    brush = alt.selection_interval(encodings=['x'])
+def _(date_col_drop, df2, metri_col_drop, mo):
+    date_selector = mo.ui.date_range.from_series(df2[date_col_drop.selected_key],label="###Date Interval")
+    # date_selector.center()
+
+    mo.hstack([metri_col_drop, date_selector], gap=1, justify='start')
+    return (date_selector,)
+
+
+@app.cell(hide_code=True)
+def _(alt, date_col_drop, date_selector, df2, metri_col_drop):
+    date_range = (date_selector.value[0], date_selector.value[1])
+    brush = alt.selection_interval(encodings=['x'], value={'x': date_range})
+
+    legend_select = alt.selection_point(fields=['location'], bind='legend')
 
     year_rule = (
         alt.Chart(df2)
@@ -210,24 +246,47 @@ def _(alt, date_col_drop, df2, metri_col_drop):
         .encode(
             x=alt.X(f"{date_col_drop.selected_key}:T", title="Date").scale(domain=brush),
             y=alt.Y(f"mean({metri_col_drop.selected_key}):Q", title="Avg. Wind Velocity"),
-            color=alt.Color("location:N").legend(orient='top'),
+            tooltip=[date_col_drop.selected_key,metri_col_drop.selected_key, 'location'],
+            color=alt.Color("location:N").legend(orient='left'),
+            opacity=alt.when(legend_select).then(alt.value(1)).otherwise(alt.value(0.2)),
         )
-        .properties(height=300, width=1000)
+        .properties(
+            height=300, 
+            width=900, 
+            title=alt.Title(
+                "Interactive Time Series",
+                color='darkslateblue',
+                fontSize=30
+            )
+        )
+        .add_params(
+            legend_select
+        )
     )
 
     selector = (
         alt.Chart(df2)
-        .mark_line(color='black')
+        .mark_line(color='gray')
         .encode(
             x=alt.X(f"{date_col_drop.selected_key}", title=None),
             y=alt.Y(f"mean({metri_col_drop.selected_key}):Q", title=None)
         )
-        .properties(height=50, width=1000)
+        .properties(
+            height=50, 
+            width=900, 
+            title=alt.Title(
+                "Selector", 
+                fontSize=15, 
+                color='black'
+            ) 
+        )
         .add_params(brush)
     )
 
     composed_chart =  (line_chart + year_rule).resolve_axis(x="independent") 
-    composed_chart & selector
+    final_chart = (composed_chart & selector)
+
+    final_chart
     return
 
 
@@ -236,6 +295,11 @@ def _(mo):
     mo.md(r"""
     ## Seasonality charts
     """)
+    return
+
+
+@app.cell
+def _():
     return
 
 
