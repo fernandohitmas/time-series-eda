@@ -22,12 +22,13 @@ def _():
     import pandas as pd
 
     import polars as pl
+    from polars import selectors as cs
     import matplotlib.pyplot as plt
 
     # Altair datasets 
     from altair.datasets import data
 
-    return alt, data, mo, pl
+    return alt, cs, data, mo, pl
 
 
 @app.cell(hide_code=True)
@@ -117,6 +118,80 @@ def _(amplificar, data, mo):
 
 
 @app.cell
+def _(df):
+    df
+    return
+
+
+@app.cell(hide_code=True)
+def _(alt, df2):
+    # replace _df with your data source
+    _chart = (
+        alt.Chart(df2)
+        .mark_bar(opacity=0.7)
+        .encode(
+            x=alt.X(field='temp_min', type='quantitative', sort='ascending'),
+            y=alt.Y(aggregate='count', type='quantitative').stack(None),
+            color=alt.Color(field='year', type='ordinal', scale={
+                'scheme': 'category20c'
+            }).legend(orient='top'),
+            row=alt.Row(field='location', sort='ascending', type='nominal'),
+            tooltip=[
+                alt.Tooltip(field='temp_min', format=',.2f'),
+                alt.Tooltip(aggregate='count'),
+                alt.Tooltip(field='weather')
+            ]
+        )
+        .properties(
+            height=290,
+            width=900,
+            config={
+                'axis': {
+                    'grid': False
+                }
+            }
+        )
+    )
+    _chart
+    return
+
+
+@app.cell(hide_code=True)
+def _(alt, df):
+    # replace _df with your data source
+    _chart = (
+        alt.Chart(df)
+        .mark_rect()
+        .encode(
+            x=alt.X(field='date', type='temporal', sort='ascending', timeUnit='date'),
+            y=alt.Y(field='date', type='temporal', sort='ascending', timeUnit='month'),
+            color=alt.Color(field='temp_max', type='quantitative', scale={
+                'scheme': 'blueorange'
+            }),
+            row=alt.Row(field='date', sort='ascending', timeUnit='year', type='temporal', bin={
+                'maxbins': 6
+            }),
+            tooltip=[
+                alt.Tooltip(field='date', timeUnit='date', title='date'),
+                alt.Tooltip(field='date', timeUnit='month', title='date'),
+                alt.Tooltip(field='temp_max', format=',.2f')
+            ]
+        )
+        .properties(
+            height=290,
+            width=585,
+            config={
+                'axis': {
+                    'grid': False
+                }
+            }
+        )
+    )
+    _chart
+    return
+
+
+@app.cell
 def _(data, datasets_dropdown, pl):
     dataset_name = datasets_dropdown.selected_key
     df = pl.from_dataframe(getattr(data, dataset_name)())
@@ -131,6 +206,52 @@ def _(df, mo):
     {text_cols}
 
     ''')
+    return
+
+
+@app.cell
+def _(df):
+    df.dtypes
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Basic Exploration
+    """)
+    return
+
+
+@app.cell
+def _(cs, df):
+    num_cols = df.select(cs.numeric())
+    num_cols.head()
+    return
+
+
+@app.cell
+def _():
+    # base = alt.Chart(df)
+
+    # chart = (
+    #     base
+    #     .mark_point()
+    #     .encode(
+    #         x=alt.X(alt.repeat('row'), type='quantitative'),
+    #         y=alt.Y(alt.repeat('column'), type='quantitative'),
+    #         color='location'
+    #     )
+    #     .properties(
+    #         width=200,
+    #         height=75
+    #     )
+    #     .repeat(
+    #         row=['temp_max', 'temp_min', 'precipitation', 'wind'],
+    #         column=['wind','precipitation','temp_min', 'temp_max'])
+    # )
+
+    # chart
     return
 
 
@@ -180,12 +301,6 @@ def _(df2, pl):
     return
 
 
-@app.cell
-def _(df2, mo):
-    mo.ui.dataframe(df2)
-    return
-
-
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
@@ -195,17 +310,15 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(amplificar, date_col_drop, df, mo):
+def _(date_col_drop, df, mo):
     not_date_cols = df.columns
     not_date_cols.remove(date_col_drop.selected_key)
 
-    metri_col_drop = mo.ui.dropdown(
-        label='''###Select a metric''',
+    metric_col_drop = mo.ui.dropdown(
+        label=None,#'''###Select a metric''',
         options=not_date_cols, 
     )
-
-    amplificar(metri_col_drop)
-    return (metri_col_drop,)
+    return (metric_col_drop,)
 
 
 @app.cell(hide_code=True)
@@ -217,17 +330,30 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(date_col_drop, df2, metri_col_drop, mo):
-    date_selector = mo.ui.date_range.from_series(df2[date_col_drop.selected_key],label="###Date Interval")
+def _(date_col_drop, df2, metric_col_drop, mo):
+    date_selector = mo.ui.date_range.from_series(df2[date_col_drop.selected_key],label=None)#"###Date Interval")
     # date_selector.center()
 
-    mo.hstack([metri_col_drop, date_selector], gap=1, justify='start')
-    return (date_selector,)
+    mo.hstack([metric_col_drop, date_selector], gap=1, justify='start')
+
+    filters = mo.md(
+        r"""
+        Metrics:
+
+        {metrics}
+
+        Date interval:
+
+        {date_selector}    
+        """
+    ).batch(metrics=metric_col_drop, date_selector=date_selector)
+    filters
+    return (filters,)
 
 
 @app.cell(hide_code=True)
-def _(alt, date_col_drop, date_selector, df2, metri_col_drop):
-    date_range = (date_selector.value[0], date_selector.value[1])
+def _(alt, date_col_drop, df2, filters, mo):
+    date_range = (filters.value["date_selector"][0], filters.value["date_selector"][1])
     brush = alt.selection_interval(encodings=['x'], value={'x': date_range})
 
     legend_select = alt.selection_point(fields=['location'], bind='legend')
@@ -245,8 +371,8 @@ def _(alt, date_col_drop, date_selector, df2, metri_col_drop):
         .mark_line()
         .encode(
             x=alt.X(f"{date_col_drop.selected_key}:T", title="Date").scale(domain=brush),
-            y=alt.Y(f"mean({metri_col_drop.selected_key}):Q", title="Avg. Wind Velocity"),
-            tooltip=[date_col_drop.selected_key,metri_col_drop.selected_key, 'location'],
+            y=alt.Y(f"mean({filters.value['metrics']}):Q", title="Avg. Wind Velocity"),
+            tooltip=[date_col_drop.selected_key,filters.value['metrics'], 'location'],
             color=alt.Color("location:N").legend(orient='left'),
             opacity=alt.when(legend_select).then(alt.value(1)).otherwise(alt.value(0.2)),
         )
@@ -269,7 +395,7 @@ def _(alt, date_col_drop, date_selector, df2, metri_col_drop):
         .mark_line(color='gray')
         .encode(
             x=alt.X(f"{date_col_drop.selected_key}", title=None),
-            y=alt.Y(f"mean({metri_col_drop.selected_key}):Q", title=None)
+            y=alt.Y(f"mean({filters.value['metrics']}):Q", title=None)
         )
         .properties(
             height=50, 
@@ -286,7 +412,7 @@ def _(alt, date_col_drop, date_selector, df2, metri_col_drop):
     composed_chart =  (line_chart + year_rule).resolve_axis(x="independent") 
     final_chart = (composed_chart & selector)
 
-    final_chart
+    mo.ui.altair_chart(final_chart)
     return
 
 
@@ -304,12 +430,17 @@ def _():
 
 
 @app.cell
-def _():
-    return
+def _(mo):
+    form = mo.md(
+       r"""
+       Choose your algorithm parameters:
 
+       $\epsilon$: {epsilon}
 
-@app.cell
-def _():
+       $\delta$: {delta}
+       """
+    ).batch(epsilon=mo.ui.slider(0.1, 1, step=0.1), delta=mo.ui.number(1, 10))
+    form.center()
     return
 
 
