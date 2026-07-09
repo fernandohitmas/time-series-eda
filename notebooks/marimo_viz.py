@@ -123,6 +123,14 @@ def _(df):
     return
 
 
+@app.cell
+def _(df, pl):
+    df.with_columns(
+        pl.col('date').dt.date()
+    ).write_csv()
+    return
+
+
 @app.cell(hide_code=True)
 def _(alt, df2):
     # replace _df with your data source
