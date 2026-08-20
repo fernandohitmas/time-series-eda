@@ -164,7 +164,7 @@ def _(alt, df2):
     return
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(alt, df):
     # replace _df with your data source
     _chart = (

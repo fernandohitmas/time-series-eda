@@ -316,7 +316,7 @@ def _(date_col_drop, df_prepared, metric_col_drop, mo, pl):
     mo.vstack([
         mo.callout(mo.md(_callout_msg), kind=_callout_kind),
         mo.md("### 3.2 Estatísticas descritivas"),
-        _stats,
+        print(df_prepared[metric_col_drop.value].describe()),
     ])
     return (df_series,)
 
@@ -336,7 +336,7 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(mo):
+def _(df_series, mo, pl):
     mov_avg_slider = mo.ui.slider(
         start=2, stop=52, value=7, step=1,
         label="Janela da média móvel (períodos)",
@@ -347,7 +347,11 @@ def _(mo):
         value="Aditivo",
         label="Modelo de decomposição",
     )
-    return decomp_radio, mov_avg_slider
+    heatmap_dropdown = mo.ui.dropdown(
+        options=df_series['date'].dt.year().cast(pl.String).unique().sort(),
+        label='Anos disponíveis'
+    )
+    return decomp_radio, heatmap_dropdown, mov_avg_slider
 
 
 @app.cell(hide_code=True)
@@ -357,7 +361,7 @@ def _(date_col_drop, df_series, mo):
         r"""
         ## 4.1 Gráfico da série temporal completa
         Selecionador de data:
-    
+
         {date_selector}    
         """
     ).batch(date_selector=_date_range)
@@ -407,6 +411,9 @@ def _(alt, date_selector, df_series):
         .properties(height=50, width=900, title=alt.Title("Seletor de intervalo", fontSize=11))
         .add_params(_brush)
     )
+
+    # teste = mo.hstack([_line & _selector, _line.value])
+    # teste
     _chart_serie = (_line + _area) & _selector 
     _chart_serie
     return
@@ -425,20 +432,46 @@ def _(
     alt,
     decomp_radio,
     df_series,
+    heatmap_dropdown,
     mo,
     mov_avg_slider,
     pl,
     seasonal_decompose,
 ):
-    # ── Tab 2: Sazonalidade ──────────────────────────────────────────────────────
-    _legend_select = alt.selection_point(fields=['ano'], bind='legend')
-
+    # ── Definindo novas colunas de tempo ──────────────────────────────────────────────────────
     _df_s = df_series.with_columns([
         pl.col("date").dt.year().alias("ano"),
         pl.col("date").dt.month().alias("mes"),
         pl.col("date").dt.week().alias("semana_iso"),
         pl.col("date").dt.weekday().alias("dia_semana"),
     ])
+
+    # ── Tab 2: Hetmap ──────────────────────────────────────────────────────
+    if heatmap_dropdown.value:
+        _df_heatmap = _df_s.filter(pl.col('ano')==int(heatmap_dropdown.value))
+    else:
+        _df_heatmap = _df_s
+    _heatmap = (
+        alt.Chart(_df_heatmap)
+        .mark_rect()
+        .encode(
+            x=alt.X(field='date', type='temporal', sort='ascending', timeUnit='date'),
+            y=alt.Y(field='mes',sort='ascending'),
+            color=alt.Color(field='value', type='quantitative', scale={'scheme': 'blueorange'}),
+            row=alt.Row(field='ano', sort='ascending', spacing=50)
+        )
+        .properties(height=250, width=820, title=alt.Title("Heatmap ano a ano", fontSize=14, color="#2d3a4a"))
+    )
+
+    _chart_heatmap = mo.vstack([
+        heatmap_dropdown,
+        mo.ui.altair_chart(_heatmap)
+    ])
+
+
+
+    # ── Tab 2: Sazonalidade ──────────────────────────────────────────────────────
+    _legend_select = alt.selection_point(fields=['ano'], bind='legend')
 
     _sazo_mensal = (
         alt.Chart(_df_s)
@@ -494,7 +527,7 @@ def _(
                 alt.Tooltip("mean(value):Q", title="Média", format=",.4f"),
             ],
         )
-        .properties(height=220, width=700,
+        .properties(height=220, width=820,
                     title=alt.Title("Sazonalidade semanal — por dia da semana e ano", fontSize=14, color="#2d3a4a"))
     )
     _chart_sazo = mo.vstack([
@@ -520,19 +553,14 @@ def _(
             x=alt.X("ano:Q", title="Ano",
                     axis=alt.Axis(values=_years_list, format="d", labelAngle=-90)),
             y=alt.Y("mean(value):Q", title="Média"),
-            # tooltip=[
-            #     alt.Tooltip("ano:Q", title="Ano"),
-            #     alt.Tooltip("mes:Q", title="Mês"),
-            #     alt.Tooltip("mean(value):Q", title="Média", format=",.4f"),
-            # ],
         )
         .properties(height=300, width=55)
     )
     _trend_rule = (
         alt.Chart(_df_trend)
+        .transform_aggregate(avg_val="mean(value)", groupby=["ano", "mes"])
         .mark_rule(color="#e05a5a", strokeDash=[4, 3], size=1.5)
         .encode(y=alt.Y("mean(avg_val):Q"))
-        .transform_aggregate(avg_val="mean(value)", groupby=["ano", "mes"])
     )
     _chart_trend = mo.ui.altair_chart(
         (_trend_line + _trend_rule)
@@ -662,7 +690,7 @@ def _(
 
     # ── Montagem das abas ────────────────────────────────────────────────────────
     mo.ui.tabs({
-        # "🗓 Série completa": _chart_serie,
+        "📊 Heatmap": _chart_heatmap,
         "📅 Sazonalidade": _chart_sazo,
         "📈 Tendência": _chart_trend,
         "🔁 Lag": _chart_lag,
@@ -670,6 +698,11 @@ def _(
         "➕ Diferenciação": _chart_diff,
         "🧩 Decomposição": _chart_decomp,
     })
+    return
+
+
+@app.cell
+def _():
     return
 
 
