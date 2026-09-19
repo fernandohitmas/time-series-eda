@@ -29,7 +29,7 @@ def _():
 
 @app.cell(hide_code=True)
 def _(alt):
-    # alt.data_transformers.enable("vegafusion")
+    alt.data_transformers.enable("vegafusion")
     _ = alt.renderers.set_embed_options(actions=False)
     return
 
@@ -469,6 +469,7 @@ def _(
         pl.col("date").dt.month().alias("mes"),
         pl.col("date").dt.week().alias("semana_iso"),
         pl.col("date").dt.weekday().alias("dia_semana"),
+        pl.col("date").dt.quarter().alias("trimestre")
     ])
 
     # ── Tab 2: Hetmap ──────────────────────────────────────────────────────
@@ -621,7 +622,7 @@ def _(
     # ── Tab 4: Lag plots ─────────────────────────────────────────────────────────
     def _make_lag_chart(lag, w=200, h=200):
         return (
-            alt.Chart(df_series)
+            alt.Chart(_df_s)
             .transform_window(window=[alt.WindowFieldDef(op="lag", field="value", param=lag, **{"as": f"lag{lag}"})])
             .mark_point(opacity=0.5, size=20, color="#4f8ef7")
             .encode(
@@ -632,6 +633,7 @@ def _(
                     alt.Tooltip("value:Q", title="y(t)", format=",.4f"),
                     alt.Tooltip(f"lag{lag}:Q", title=f"y(t-{lag})", format=",.4f"),
                 ],
+                color=alt.Color('trimestre:N')
             )
             .properties(width=w, height=h, title=f"Lag {lag}")
         )
@@ -837,8 +839,8 @@ def _(alt, df_series, np, pl):
     ).mark_bar(opacity=0.5).properties(width=900)
 
     # _chart_diff &  (_chart_diff_hist + 
-    _chart_density
-    # _chart_diff_hist
+    # _chart_density
+    _chart_diff_hist
     return
 
 
