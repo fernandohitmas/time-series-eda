@@ -347,6 +347,7 @@ def _(df_series, mo, pl):
         label="Janela da média móvel (períodos)",
         full_width=True,
     )
+
     decomp_radio = mo.ui.radio(
         options={"Aditivo": "additive", "Multiplicativo": "multiplicative"},
         value="Aditivo",
@@ -633,6 +634,7 @@ def _(
                     alt.Tooltip("value:Q", title="y(t)", format=",.4f"),
                     alt.Tooltip(f"lag{lag}:Q", title=f"y(t-{lag})", format=",.4f"),
                 ],
+                row=alt.Row('trimestre:N'),
                 color=alt.Color('trimestre:N')
             )
             .properties(width=w, height=h, title=f"Lag {lag}")
