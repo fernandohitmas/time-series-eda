@@ -1,10 +1,7 @@
 import marimo
 
 __generated_with = "0.25.1"
-app = marimo.App(
-    width="medium",
-    layout_file="layouts/stationarity-analysis.grid.json",
-)
+app = marimo.App(width="medium")
 
 
 @app.cell(hide_code=True)
@@ -12,22 +9,14 @@ def _():
     from datetime import datetime, timedelta
 
     import marimo as mo
-    import anywidget
     import polars as pl
     from polars import selectors as cs
     import altair as alt
     import numpy as np
-    import matplotlib
-    import matplotlib.pyplot as plt
 
-    from statsmodels.tsa.stattools import adfuller, kpss, acf
-    from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
-    from statsmodels.tsa.seasonal import seasonal_decompose, STL, MSTL
-    from statsmodels.tsa.x13 import x13_arima_select_order, x13_arima_analysis
+    from statsmodels.tsa.seasonal import seasonal_decompose
 
-    from scipy.stats import boxcox
-
-    return MSTL, acf, alt, cs, mo, np, pl, seasonal_decompose
+    return alt, cs, mo, pl, seasonal_decompose
 
 
 @app.cell(hide_code=True)
@@ -40,11 +29,10 @@ def _(alt):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    # 📊 Análise de Estacionariedade de Séries Temporais
+    # 📊 Análise Exploratória de Séries Temporais
 
-    Este notebook guia você por uma análise completa de **estacionariedade** de uma série temporal,
-    cobrindo desde a exploração visual dos dados até testes estatísticos formais (**ADF** e **KPSS**).
-    O objetivo é fornecer um diagnóstico claro e orientar a escolha de métodos preditivos adequados.
+    Este notebook guia você por uma análise exploratória visual de uma série temporal,
+    cobrindo desde o carregamento dos dados até a exploração de sazonalidade, tendência e padrões de lag.
 
     | # | Etapa | O que será feito |
     |---|---|---|
@@ -52,9 +40,6 @@ def _(mo):
     | **2** | Configuração da série | Seleção da métrica, data e frequência |
     | **3** | Visão Geral Descritiva | Estatísticas básicas da série configurada |
     | **4** | Exploração Visual | Sazonalidade, tendência, lag, média móvel, decomposição |
-    | **5** | Testes de Estacionariedade | Testes ADF e KPSS com interpretação |
-    | **6** | ACF e PACF | Autocorrelações para parâmetros ARIMA |
-    | **7** | Conclusões | Síntese da análise e próximos passos |
 
     /// admonition | 💡 **Como usar**
     O notebook é **reativo** — carregue o arquivo na Seção 1, configure a série na Seção 2 e todas as seções seguintes se atualizam automaticamente.
@@ -86,21 +71,19 @@ def _(mo):
         label="Arraste o arquivo CSV aqui ou clique para selecionar",
     )
     file_ui
-    return
+    return (file_ui,)
 
 
 @app.cell(hide_code=True)
-def _(mo, pl):
-
-    df = pl.read_csv("./notebooks/teste.csv", try_parse_dates=True)
-    # mo.stop(
-    #     not file_ui.value,
-    #     mo.callout(
-    #         mo.md("⬆️ **Aguardando arquivo.** Faça o upload de um arquivo CSV acima para iniciar a análise."),
-    #         kind="warn",
-    #     ),
-    # )
-    # df = pl.read_csv(file_ui.contents(), try_parse_dates=True)
+def _(file_ui, mo, pl):
+    mo.stop(
+        not file_ui.value,
+        mo.callout(
+            mo.md("⬆️ **Aguardando arquivo.** Faça o upload de um arquivo CSV acima para iniciar a análise."),
+            kind="warn",
+        ),
+    )
+    df = pl.read_csv(file_ui.contents(), try_parse_dates=True)
 
     mo.vstack(
         [
@@ -257,7 +240,7 @@ def _(mo):
     # 3. Visão Geral Descritiva
 
     Selecione a **métrica** que deseja analisar e confira as estatísticas básicas da série.
-    A escolha aqui reflete diretamente em todos os gráficos e testes abaixo.
+    A escolha aqui reflete diretamente em todos os gráficos abaixo.
     """)
     return
 
@@ -301,19 +284,6 @@ def _(date_col_drop, df_prepared, metric_col_drop, mo, pl):
     _d_min = df_series["date"].min()
     _d_max = df_series["date"].max()
     _span = (_d_max - _d_min).days if _d_min and _d_max else 0
-
-    _stats = pl.DataFrame({
-        "Estatística": ["Contagem", "Nulos", "Mínimo", "Máximo", "Média", "Mediana", "Desvio padrão"],
-        "Valor": [
-            f"{_n:,}",
-            f"{_nulls} ({100*_nulls/_n:.1f}%)" if _n > 0 else "—",
-            f"{_s.min():.4f}",
-            f"{_s.max():.4f}",
-            f"{_s.mean():.4f}",
-            f"{_s.median():.4f}",
-            f"{_s.std():.4f}",
-        ],
-    })
 
     _callout_kind = "warn" if _nulls > 0 else "success"
     _callout_msg = (
@@ -378,25 +348,23 @@ def _(df_series, mo, pl):
 
 @app.cell(hide_code=True)
 def _(date_col_drop, df_series, mo):
-    _date_range = mo.ui.date_range.from_series(df_series[date_col_drop.selected_key],label=None,full_width=True)
+    _date_range = mo.ui.date_range.from_series(df_series[date_col_drop.selected_key], label=None, full_width=True)
     date_selector = mo.md(
         r"""
         ## 4.1 Gráfico da série temporal completa
         Selecionador de intervalo: {date_selector}    
         """
     ).batch(date_selector=_date_range)
-    # date_selector
     return (date_selector,)
 
 
 @app.cell(hide_code=True)
 def _(alt, date_selector, df_series, mo):
-    # ── Tab 1: Série completa ────────────────────────────────────────────────────
+    # ── Série completa ────────────────────────────────────────────────────────────
 
-    # Define intervalo inicial
     _date_range = ((date_selector.value["date_selector"][0], date_selector.value["date_selector"][1]))
 
-    _brush = alt.selection_interval(encodings=["x"], value={"x":_date_range})
+    _brush = alt.selection_interval(encodings=["x"], value={"x": _date_range})
 
     _line = (
         alt.Chart(df_series)
@@ -432,16 +400,13 @@ def _(alt, date_selector, df_series, mo):
         .add_params(_brush)
     )
 
-    # teste = mo.hstack([_line & _selector, _line.value])
-    # teste
     _chart_serie = mo.ui.altair_chart((_line + _area) & _selector)
 
-    _final_chart = mo.vstack([date_selector, _chart_serie])
-    _final_chart
+    mo.vstack([date_selector, _chart_serie])
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(date_selector, df_series, pl):
     df_series.filter(
         (pl.col('date') >= date_selector.value["date_selector"][0]) &
@@ -470,7 +435,7 @@ def _(
     sazonal_radio,
     seasonal_decompose,
 ):
-    # ── Definindo novas colunas de tempo ──────────────────────────────────────────────────────
+    # ── Definindo novas colunas de tempo ──────────────────────────────────────────
     _df_s = df_series.with_columns([
         pl.col("date").dt.year().alias("ano"),
         pl.col("date").dt.month().alias("mes"),
@@ -479,21 +444,21 @@ def _(
         pl.col("date").dt.quarter().alias("trimestre")
     ])
 
-    # ── Tab 2: Hetmap ──────────────────────────────────────────────────────
+    # ── Heatmap ───────────────────────────────────────────────────────────────────
     if heatmap_dropdown.value == 'Todos':
         _df_heatmap = _df_s
     else:
-        _df_heatmap = _df_s.filter(pl.col('ano')==int(heatmap_dropdown.value))
+        _df_heatmap = _df_s.filter(pl.col('ano') == int(heatmap_dropdown.value))
 
     _heatmap = (
         alt.Chart(_df_heatmap)
         .mark_rect()
         .encode(
             x=alt.X(field='date', type='temporal', sort='ascending', timeUnit='date'),
-            y=alt.Y(field='mes',sort='ascending'),
+            y=alt.Y(field='mes', sort='ascending'),
             color=alt.Color(field='value', type='quantitative', scale={'scheme': 'blueorange'}),
             row=alt.Row(field='ano', sort='ascending', spacing=50),
-            tooltip=alt.Tooltip(['date','value'])
+            tooltip=alt.Tooltip(['date', 'value'])
         )
         .properties(height=250, width=820, title=alt.Title("Heatmap ano a ano", fontSize=14, color="#2d3a4a"))
     )
@@ -503,9 +468,7 @@ def _(
         mo.ui.altair_chart(_heatmap)
     ])
 
-
-
-    # ── Tab 2: Sazonalidade ──────────────────────────────────────────────────────
+    # ── Sazonalidade ──────────────────────────────────────────────────────────────
     _legend_select = alt.selection_point(fields=['ano'], bind='legend')
 
     _sazo_mensal = (
@@ -544,7 +507,6 @@ def _(
         .add_params(_legend_select)
     )
 
-    # YoY por dia da semana (facetado por ano)
     _sazo_diasemana = (
         alt.Chart(_df_s)
         .mark_line()
@@ -567,11 +529,11 @@ def _(
     )
 
     if sazonal_radio.value == 'Mês do ano':
-        _chart_sazo = mo.vstack([sazonal_radio,_sazo_mensal])
+        _chart_sazo = mo.vstack([sazonal_radio, _sazo_mensal])
     elif sazonal_radio.value == 'Semana do ano':
-        _chart_sazo = mo.vstack([sazonal_radio,_sazo_semanal])
+        _chart_sazo = mo.vstack([sazonal_radio, _sazo_semanal])
     elif sazonal_radio.value == 'Dia da semana':
-        _chart_sazo = mo.vstack([sazonal_radio,_sazo_diasemana])
+        _chart_sazo = mo.vstack([sazonal_radio, _sazo_diasemana])
     else:
         _chart_sazo = mo.vstack([
             sazonal_radio,
@@ -582,17 +544,7 @@ def _(
             mo.ui.altair_chart(_sazo_diasemana),
         ])
 
-
-    # _chart_sazo = mo.vstack([
-    #     mo.ui.altair_chart(
-    #         alt.vconcat(_sazo_mensal, _sazo_semanal)
-    #         .resolve_scale(color="shared")
-    #     ),
-    #     mo.ui.altair_chart(_sazo_diasemana),
-    # ])
-
-    # ── Tab 3: Tendência ─────────────────────────────────────────────────────────
-    # Média anual facetada por mês (inspirado em data-visualization.py)
+    # ── Tendência ─────────────────────────────────────────────────────────────────
     _df_trend = df_series.with_columns([
         pl.col("date").dt.year().alias("ano"),
         pl.col("date").dt.month().alias("mes"),
@@ -626,7 +578,7 @@ def _(
         )
     )
 
-    # ── Tab 4: Lag plots ─────────────────────────────────────────────────────────
+    # ── Lag plots ─────────────────────────────────────────────────────────────────
     def _make_lag_chart(lag, w=200, h=200):
         return (
             alt.Chart(_df_s)
@@ -650,7 +602,7 @@ def _(
         .resolve_scale(x="shared", y="shared")
     )
 
-    # ── Tab 5: Média móvel ───────────────────────────────────────────────────────
+    # ── Média móvel ───────────────────────────────────────────────────────────────
     _window = mov_avg_slider.value
     _df_ma = df_series.with_columns(
         pl.col("value").rolling_mean(window_size=_window, center=True).alias("media_movel")
@@ -681,24 +633,7 @@ def _(
         ),
     ])
 
-    # ── Tab 6: Diferenciação ─────────────────────────────────────────────────────
-    _chart_diff = mo.ui.altair_chart(
-        alt.Chart(df_series)
-        .transform_window(window=[alt.WindowFieldDef(op="lag", field="value", param=1, **{"as": "lag1"})])
-        .transform_calculate(diff1="datum.value - datum.lag1")
-        .mark_line(color="#a055f7")
-        .encode(
-            x=alt.X("date:T", title="Data"),
-            y=alt.Y("diff1:Q", title="Δ Valor (1ª diferença)"),
-            tooltip=[
-                alt.Tooltip("date:T", title="Data", format="%d/%m/%Y"),
-                alt.Tooltip("diff1:Q", title="Diferença", format=",.4f"),
-            ],
-        )
-        .properties(height=280, width=900, title="1ª Diferença da série (y(t) − y(t−1))")
-    )
-
-    # ── Tab 7: Decomposição ──────────────────────────────────────────────────────
+    # ── Decomposição ──────────────────────────────────────────────────────────────
     _model = decomp_radio.value
     try:
         _arr = df_series["value"].drop_nulls().to_numpy()
@@ -743,174 +678,15 @@ def _(
             kind="warn",
         )
 
-    # ── Montagem das abas ────────────────────────────────────────────────────────
+    # ── Montagem das abas ─────────────────────────────────────────────────────────
     mo.ui.tabs({
         "📅 Sazonalidade": _chart_sazo,
         "📊 Heatmap": _chart_heatmap,
         "📈 Tendência": _chart_trend,
         "🔁 Lag": _chart_lag,
         "〰️ Média Móvel": _chart_ma,
-        # "➕ Diferenciação": _chart_diff,
         # "🧩 Decomposição": _chart_decomp,
     })
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    # 5. Decomposição
-    """)
-    return
-
-
-@app.cell
-def _(df_series, seasonal_decompose):
-    _decompos = seasonal_decompose(df_series['value'], period=365, extrapolate_trend="freq")
-
-    _decompos.plot()
-    return
-
-
-@app.cell
-def _(df_series):
-    max(2, len(df_series['value']) // 4)
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    # 6. Tranformações
-
-    As transformações disponíveis para os dados são:
-
-     - Diferenciação: calcular a diferença entre dois dias sucessivos;
-     - Transformação de Box Cox: o objetivo é normalizar a variação da amplitudade dos dados para que sua variância esteja mais uniforme;
-    """)
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## 5.1 Diferenciação
-    """)
-    return
-
-
-@app.cell
-def _(df_series, np, pl):
-    _df_diff = df_series.with_columns(
-        diff1 = pl.col(name='value') - pl.col(name='value').shift()
-    ).drop_nulls()
-
-    _n_bins = 20
-    _bin_size = (np.ceil(_df_diff['diff1'].max()) - np.floor(_df_diff['diff1'].min()))/_n_bins
-
-    _df_diff = _df_diff.with_columns(
-        bin = (pl.col('diff1')/_bin_size).round(0)
-    )
-    # _df_diff
-    _df_diff = _df_diff.group_by('bin').agg(
-        pl.col('bin').count().alias('count')
-    ).with_columns(
-        bin_value=pl.col('bin')*_bin_size
-    )
-    return
-
-
-@app.cell
-def _(alt, df_series, np, pl):
-    _ts_size = df_series['value'].len()
-    _acf_limit = 2/np.sqrt(_ts_size)
-
-    _df_diff = df_series.with_columns(
-        diff1 = pl.col(name='value') - pl.col(name='value').shift()
-    )
-
-    _chart_diff = alt.Chart(_df_diff).encode(
-        x='date',
-        y='diff1'
-    ).mark_rule().properties(width=900)
-
-    _chart_density = alt.Chart(_df_diff).transform_density('diff1', as_=['diff1', 'density']).encode(
-        x=alt.X('diff1:Q'),
-        y=alt.Y('density:Q')
-    ).mark_area(opacity=0.5).properties(width=900)
-
-    _chart_diff_hist = alt.Chart(_df_diff).transform_calculate(
-        freq='count()/'
-    ).encode(
-        y='count()',
-        x=alt.X('diff1', bin=True).bin(step=.5)
-    ).mark_bar(opacity=0.5).properties(width=900)
-
-    # _chart_diff &  (_chart_diff_hist + 
-    # _chart_density
-    _chart_diff_hist
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    # 7. Autocorrelação
-    """)
-    return
-
-
-@app.cell
-def _(MSTL, acf, alt, df_series, np, pl):
-    _decompos = MSTL(df_series['value'], periods=365).fit()
-
-    _df_diff = df_series.with_columns(
-        diff1 = pl.col(name='value') - pl.col(name='value').shift()
-    )
-
-    _ts_size = df_series['value'].len()
-    _acf_limit = 2/np.sqrt(_ts_size)
-
-
-    _data_acf = acf(_df_diff.filter(pl.col('diff1').is_not_null())['diff1'])
-
-
-    _data_acf = acf(_decompos.resid)
-
-    _df_acf = pl.DataFrame(data=_data_acf, schema=['valores'])
-
-    _df_acf = _df_acf.with_row_index(offset=1).filter(pl.col('index') > 1)
-
-    _base_chart = alt.Chart(_df_acf)
-
-    _chart_acf = _base_chart.encode(
-        x='index:Q',
-        y='valores:Q'
-    ).mark_bar().properties(width=900)
-
-    _chart_acf_limit_pos = _base_chart.mark_rule(strokeDash=[8,4], color='red').encode(
-        x=alt.value(0),
-        y=alt.datum(_acf_limit),
-        x2=alt.value('width'),
-        y2=alt.datum(_acf_limit)
-    )
-
-    _chart_acf_limit_neg = _base_chart.mark_rule(strokeDash=[8,4], color='red').encode(
-        x=alt.value(0),
-        y=alt.datum(-_acf_limit),
-        x2=alt.value('width'),
-        y2=alt.datum(-_acf_limit)
-    )
-
-    _chart_acf + _chart_acf_limit_pos + _chart_acf_limit_neg
-
-    # _data_acf
-    # _chart_diff
-    return
-
-
-@app.cell
-def _():
     return
 
 
