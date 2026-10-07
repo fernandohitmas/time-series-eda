@@ -86,21 +86,21 @@ def _(mo):
         label="Arraste o arquivo CSV aqui ou clique para selecionar",
     )
     file_ui
-    return
+    return (file_ui,)
 
 
 @app.cell(hide_code=True)
-def _(mo, pl):
+def _(file_ui, mo, pl):
 
-    df = pl.read_csv("./notebooks/teste.csv", try_parse_dates=True)
-    # mo.stop(
-    #     not file_ui.value,
-    #     mo.callout(
-    #         mo.md("⬆️ **Aguardando arquivo.** Faça o upload de um arquivo CSV acima para iniciar a análise."),
-    #         kind="warn",
-    #     ),
-    # )
-    # df = pl.read_csv(file_ui.contents(), try_parse_dates=True)
+    # df = pl.read_csv("./notebooks/teste.csv", try_parse_dates=True)
+    mo.stop(
+        not file_ui.value,
+        mo.callout(
+            mo.md("⬆️ **Aguardando arquivo.** Faça o upload de um arquivo CSV acima para iniciar a análise."),
+            kind="warn",
+        ),
+    )
+    df = pl.read_csv(file_ui.contents(), try_parse_dates=True)
 
     mo.vstack(
         [
